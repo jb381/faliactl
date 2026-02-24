@@ -278,7 +278,11 @@ func exportCommutesToICS(results []ResolvedCommute, homeAddress string) error {
 		// Build a description with all transfers + Map Link
 		// Google Maps deep link to generic transit routing for the end destination
 		destQuery := url.QueryEscape(res.Journey.Legs[len(res.Journey.Legs)-1].Destination.Name)
-		mapsURL := fmt.Sprintf("https://www.google.com/maps/dir/?api=1&origin=%s&destination=%s&travelmode=transit", url.QueryEscape(homeAddress), destQuery)
+
+		mapsURL := fmt.Sprintf("https://www.google.com/maps/dir/?api=1&origin=%s&destination=%s&travelmode=transit",
+			url.QueryEscape(homeAddress),
+			destQuery,
+		)
 
 		desc := fmt.Sprintf("Live tracking normally available via DB Navigator.\nGoogle Maps Link: %s\n\nJourney Details:\n", mapsURL)
 		for j, leg := range res.Journey.Legs {
