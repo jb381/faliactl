@@ -1,0 +1,14 @@
+# Build outputs
+faliactl
+faliactl.exe
+*.out
+cover.out
+
+# Runtime data
+*.ics
+*.html
+
+# IDEs and OS
+.DS_Store
+.idea/
+.vscode/
