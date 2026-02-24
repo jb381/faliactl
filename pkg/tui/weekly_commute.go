@@ -2,7 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"net/url"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,11 +13,21 @@ import (
 	"faliactl/pkg/scraper"
 	"faliactl/pkg/transit"
 
+	ics "github.com/arran4/golang-ical"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// RunWeeklyCommuteTUI generates a 7-day transit itinerary based on Saved Courses
+// ResolvedCommute represents a successfully mapped transit journey for a specific course day
+type ResolvedCommute struct {
+	Date    string
+	Course  scraper.Course
+	Journey *transit.Journey
+	Error   error
+}
+
+// RunWeeklyCommuteTUI generates a transit itinerary based on Saved Courses
 func RunWeeklyCommuteTUI() error {
 	cfg, err := config.Load()
 	if err != nil || cfg.HomeStationID == "" {
@@ -29,7 +42,37 @@ func RunWeeklyCommuteTUI() error {
 		return nil
 	}
 
-	fmt.Println(accentStyle.Render("Generating Weekly Commute Planner..."))
+	var daysStr string
+	daysForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("How many days should we plan for?").
+				Description("Enter the number of days you want your commute itinerary generated for.").
+				Placeholder("7").
+				Value(&daysStr).
+				Validate(func(v string) error {
+					if v == "" {
+						return nil // Default to 7
+					}
+					val, err := strconv.Atoi(v)
+					if err != nil || val <= 0 || val > 365 {
+						return fmt.Errorf("please enter a valid number between 1 and 365")
+					}
+					return nil
+				}),
+		),
+	).WithTheme(GetTheme())
+
+	if err := daysForm.Run(); err != nil {
+		return err
+	}
+
+	days := 7 // default
+	if daysStr != "" {
+		days, _ = strconv.Atoi(daysStr)
+	}
+
+	fmt.Println(accentStyle.Render(fmt.Sprintf("\nGenerating %d-Day Commute Planner...", days)))
 
 	client := scraper.NewClient()
 	var allCourses []scraper.Course
@@ -54,12 +97,12 @@ func RunWeeklyCommuteTUI() error {
 		return fmt.Errorf("failed to fetch schedules: %w", fetchErr)
 	}
 
-	// 2. Filter down to only Saved Courses occurring in the next 7 days
+	// 2. Filter down to only Saved Courses occurring in the given timeframe
 	loc, _ := time.LoadLocation("Europe/Berlin")
 	now := time.Now().In(loc)
 	// Start of today (midnight) so we include courses later today
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	nextWeek := todayStart.AddDate(0, 0, 7)
+	timeHorizon := todayStart.AddDate(0, 0, days)
 
 	existingSavedMap := make(map[string]bool)
 	for _, name := range cfg.SavedCourses {
@@ -77,8 +120,8 @@ func RunWeeklyCommuteTUI() error {
 		timeStr := fmt.Sprintf("%s %s", dateOnly, c.StartTime)
 
 		t, parseErr := time.ParseInLocation("02.01.2006 15:04", timeStr, loc)
-		// Must be in the future (or later today) AND before next week
-		if parseErr == nil && t.After(now) && t.Before(nextWeek) {
+		// Must be in the future (or later today) AND before the horizon
+		if parseErr == nil && t.After(now) && t.Before(timeHorizon) {
 			// We only want to commute ONCE per day, to the FIRST class of that day.
 			// Let's store them all for now and sort them.
 			upcomingCourses = append(upcomingCourses, c)
@@ -86,7 +129,7 @@ func RunWeeklyCommuteTUI() error {
 	}
 
 	if len(upcomingCourses) == 0 {
-		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("\nNo saved classes scheduled for the next 7 days! Enjoy your free time. 🏖️"))
+		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(fmt.Sprintf("\nNo saved classes scheduled for the next %d days! Enjoy your free time. 🏖️", days)))
 		return nil
 	}
 
@@ -130,13 +173,6 @@ func RunWeeklyCommuteTUI() error {
 	}
 
 	// 3. Calculate all the routes
-	type ResolvedCommute struct {
-		Date    string
-		Course  scraper.Course
-		Journey *transit.Journey
-		Error   error
-	}
-
 	var results []ResolvedCommute
 	transitClient := transit.NewClient()
 
@@ -189,6 +225,82 @@ func RunWeeklyCommuteTUI() error {
 		fmt.Println()
 	}
 
+	// 4. Offer to export the generated commute list as an ICS file
+	var exportICS bool
+	exportForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Export this itinerary to a calendar (.ics) file?").
+				Description("Creates a file you can import into Apple Calendar or Google Calendar, complete with tracking links.").
+				Value(&exportICS).
+				Affirmative("Export").
+				Negative("Cancel"),
+		),
+	).WithTheme(GetTheme())
+
+	if err := exportForm.Run(); err != nil {
+		return err
+	}
+
+	if exportICS {
+		err := exportCommutesToICS(results, cfg.HomeAddress)
+		if err != nil {
+			fmt.Println(errorStyle.Render(fmt.Sprintf("Failed to export ICS: %v", err)))
+		}
+	}
+
+	return nil
+}
+
+// exportCommutesToICS creates the iCalendar file with Google Maps transit links
+func exportCommutesToICS(results []ResolvedCommute, homeAddress string) error {
+	cal := ics.NewCalendar()
+	cal.SetMethod(ics.MethodPublish)
+
+	for i, res := range results {
+		if res.Error != nil {
+			continue // skip broken legs
+		}
+
+		firstDepart := res.Journey.Legs[0].Departure
+		lastArrival := res.Journey.Legs[len(res.Journey.Legs)-1].Arrival
+
+		event := cal.AddEvent(fmt.Sprintf("faliactl-commute-%d", i))
+		event.SetCreatedTime(time.Now())
+		event.SetDtStampTime(time.Now())
+		event.SetModifiedAt(time.Now())
+		event.SetStartAt(firstDepart)
+		event.SetEndAt(lastArrival)
+
+		event.SetSummary(fmt.Sprintf("🚌 Commute to %s", res.Course.Name))
+		event.SetLocation(fmt.Sprintf("Start: %s", res.Journey.Legs[0].Origin.Name))
+
+		// Build a description with all transfers + Map Link
+		// Google Maps deep link to generic transit routing for the end destination
+		destQuery := url.QueryEscape(res.Journey.Legs[len(res.Journey.Legs)-1].Destination.Name)
+		mapsURL := fmt.Sprintf("https://www.google.com/maps/dir/?api=1&origin=%s&destination=%s&travelmode=transit", url.QueryEscape(homeAddress), destQuery)
+
+		desc := fmt.Sprintf("Live tracking normally available via DB Navigator.\nGoogle Maps Link: %s\n\nJourney Details:\n", mapsURL)
+		for j, leg := range res.Journey.Legs {
+			lineName := "Walk🚶"
+			if leg.Line != nil {
+				lineName = leg.Line.Name
+			}
+			desc += fmt.Sprintf("  %d. [%s] %s -> %s\n", j+1, leg.Departure.Local().Format("15:04"), lineName, leg.Destination.Name)
+		}
+
+		desc += fmt.Sprintf("\nArrives at %s in time for %s at %s.", lastArrival.Local().Format("15:04"), res.Course.Name, res.Course.StartTime)
+		event.SetDescription(desc)
+	}
+
+	timestamp := time.Now().Format("20060102_150405")
+	filename := fmt.Sprintf("My_Commutes_%s.ics", timestamp)
+	err := os.WriteFile(filename, []byte(cal.Serialize()), 0644)
+	if err != nil {
+		return fmt.Errorf("could not write ics file: %w", err)
+	}
+
+	fmt.Printf("\n✨ Successfully exported commute calendar to: %s\n", filename)
 	return nil
 }
 
