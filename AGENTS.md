@@ -27,6 +27,13 @@ This project is built using Go, heavily leveraging the `charm.land` ecosystem to
 - `pkg/tui/`: The UI components built using `huh.Form`. Provides fuzzy-searchable multi-select lists for schedules, cafeterias, and transit.
   - Implements a dynamic styling builder via `GetTheme()` in `app.go`. This securely decrypts the user's saved hex color preference and dynamically re-binds Lipgloss variables across all TUI screens.
 
+## Architectural Philosophy
+Any future extensions or feature work on `faliactl` must adhere to these three core design pillars:
+1. **Offline-First & Fast**: The university intranet is historically slow. `faliactl` must heavily leverage `pkg/config/` for persistent preferences and `pkg/scraper/cache.go` to aggressively cache HTTP responses, ensuring CLI commands execute in under 1 second whenever possible.
+2. **Unix Philosophy / Pipeline Ready**: The CLI commands in `cmd/` (like `export` and `transit`) must always support raw stdout piping to allow users to build shell scripts around them. Complex TUI elements (`huh.Form`) should remain strictly cordoned off inside `pkg/tui/` and `interactive.go`.
+3. **Strict Separation of Concerns**: Models and API logic (`pkg/scraper`, `pkg/mensa`, `pkg/transit`) must never import or be aware of UI frameworks (`charmbracelet/huh` or `lipgloss`). This enforces a clean MVC pattern where the terminal UI is merely a presentation layer wrapped around highly-testable core business logic.
+4. **Dependency Minimalism**: `faliactl` intentionally avoids massive web frameworks or heavy ORMs. If a feature can be built utilizing standard Go libraries (e.g., `net/http` and `encoding/json`), do not add an external GitHub package to `go.mod`.
+
 ## Future Extensibility
 - **Adding new commands**: The application uses Cobra, so adding a new sub-command is as easy as creating a new file in `cmd/` and adding it to the `rootCmd`.
 - **Testing Philosophy**: `faliactl` relies heavily on two layers of testing:
@@ -35,3 +42,6 @@ This project is built using Go, heavily leveraging the `charm.land` ecosystem to
 
 ## Agent Instructions
 - **Self-Updating Knowledge Base**: As an AI agent working on this repository, you must ALWAYS proactively update this `agents.md` file and the `README.md` file to reflect any new modules, structural changes, design patterns, or CLI commands that you implement over future conversations. Maintaining this documentation as the single source of truth is a strict requirement for all codebase modifications.
+- **Git Operations**: NEVER `git commit` or `git push` autonomously without explicit permission from the user. You must always ask for approval before performing any git operations that modify the repository history or remote state.
+- **Code Quality & Formatting**: Before asking the user to commit, you must ensure that `go fmt ./...` and `go vet ./...` have been executed and return zero errors. This repository maintains a strictly clean state.
+- **Cross-Platform Compatibility**: `faliactl` is an OS-agnostic CLI. You must NEVER hardcode UNIX-style paths (e.g., `~/.faliactl.json`). Always use `os.UserHomeDir()` and `filepath.Join()` to ensure the CLI does not crash when compiled for Windows users.
