@@ -64,8 +64,14 @@ func RunMensaTUI() error {
 	}
 
 	var campusLocations []mensa.Location
+	search := strings.ToLower(selectedCampus)
+	searchAlt := strings.ReplaceAll(search, "ue", "ü")
+
 	for _, loc := range locations {
-		if strings.EqualFold(loc.Address.City, selectedCampus) {
+		city := strings.ToLower(loc.Address.City)
+		name := strings.ToLower(loc.Name)
+		if strings.Contains(city, search) || strings.Contains(city, searchAlt) ||
+			strings.Contains(name, search) || strings.Contains(name, searchAlt) {
 			campusLocations = append(campusLocations, loc)
 		}
 	}
