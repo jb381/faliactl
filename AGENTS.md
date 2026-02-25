@@ -42,6 +42,7 @@ Any future extensions or feature work on `faliactl` must adhere to these three c
 
 ## Agent Instructions
 - **Self-Updating Knowledge Base**: As an AI agent working on this repository, you must ALWAYS proactively update this `agents.md` file and the `README.md` file to reflect any new modules, structural changes, design patterns, or CLI commands that you implement over future conversations. Maintaining this documentation as the single source of truth is a strict requirement for all codebase modifications.
-- **Git Operations**: NEVER `git commit` or `git push` autonomously without explicit permission from the user. You must always ask for approval before performing any git operations that modify the repository history or remote state.
+- **Git Operations**: NEVER `git push` autonomously without explicit permission from the user. You must always ask for approval before performing any git operations that modify the repository history or remote state.
 - **Code Quality & Formatting**: Before asking the user to commit, you must ensure that `go fmt ./...` and `go vet ./...` have been executed and return zero errors. This repository maintains a strictly clean state.
 - **Cross-Platform Compatibility**: `faliactl` is an OS-agnostic CLI. You must NEVER hardcode UNIX-style paths (e.g., `~/.faliactl.json`). Always use `os.UserHomeDir()` and `filepath.Join()` to ensure the CLI does not crash when compiled for Windows users.
+- **Autonomous Refactoring**: If you identify a need for refactoring, you are allowed to refactor autonomously. However, you must always present the refactored code to the user for approval before committing. You must also ensure that the refactoring does not break any existing functionality.

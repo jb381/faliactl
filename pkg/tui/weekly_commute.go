@@ -273,7 +273,9 @@ func exportCommutesToICS(results []ResolvedCommute, homeAddress string) error {
 		event.SetEndAt(lastArrival)
 
 		event.SetSummary(fmt.Sprintf("🚌 Commute to %s", res.Course.Name))
-		event.SetLocation(fmt.Sprintf("Start: %s", res.Journey.Legs[0].Origin.Name))
+
+		fullAddress := scraper.GetCampusAddress(res.Course.Room)
+		event.SetLocation(fmt.Sprintf("%s, %s", res.Course.Room, fullAddress))
 
 		// Build a description with all transfers + Map Link
 		// Google Maps deep link to generic transit routing for the end destination

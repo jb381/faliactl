@@ -52,7 +52,9 @@ func GenerateICS(courses []scraper.Course, w io.Writer) error {
 		event.SetStartAt(startTime)
 		event.SetEndAt(endTime)
 		event.SetSummary(c.Name)
-		event.SetLocation(c.Room)
+
+		fullAddress := scraper.GetCampusAddress(c.Room)
+		event.SetLocation(fmt.Sprintf("%s, %s", c.Room, fullAddress))
 
 		description := fmt.Sprintf("Type: %s\nGroup: %s", c.Type, c.GroupStr)
 		event.SetDescription(description)

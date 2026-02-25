@@ -103,3 +103,18 @@ func deduplicateCourses(courses []Course) []Course {
 
 	return unique
 }
+
+// GetCampusAddress returns the physical street address of an Ostfalia campus based on the room name prefix.
+func GetCampusAddress(room string) string {
+	// Rooms are sometimes prefixed with cities (e.g. WF-EX-2/127 for Wolfenbüttel Am Exer)
+	roomUpper := strings.ToUpper(room)
+	if strings.Contains(roomUpper, "SZ") {
+		return "Karl-Scharfenberg-Straße 55-57, 38229 Salzgitter"
+	} else if strings.Contains(roomUpper, "SUD") {
+		return "Herbert-Meyer-Straße 7, 29556 Suderburg"
+	} else if strings.Contains(roomUpper, "-EX-") || strings.HasPrefix(roomUpper, "EX") {
+		return "Am Exer 2, 38302 Wolfenbüttel"
+	}
+	// Default to Wolfenbüttel Hauptcampus
+	return "Salzdahlumer Str. 46/48, 38302 Wolfenbüttel"
+}
