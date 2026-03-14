@@ -116,3 +116,9 @@ go test -v ./...
 - [Lipgloss](https://github.com/charmbracelet/lipgloss) — *For styling, colors, and layouts*
 - [Goquery](https://github.com/PuerkitoBio/goquery) — *For slicing through HTML*
 - [Golang-ICAL](github.com/arran4/golang-ical) — *For printing calendars*
+
+---
+
+## 📜 License
+
+`faliactl` is released under the [MIT License](LICENSE).
