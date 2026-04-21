@@ -1,0 +1,13 @@
+{
+  "my-classes": {
+    "groups": ["161902.html"],
+    "courses": [
+      "Software Engineering",
+      "Datenbanksysteme"
+    ]
+  },
+  "multiple-groups-example": {
+    "groups": ["161902.html", "161903.html"],
+    "courses": []
+  }
+}

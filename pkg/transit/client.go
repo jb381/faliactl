@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -22,7 +23,7 @@ func NewClient() *Client {
 	}
 }
 
-// getWithRetries attempts an HTTP GET request up to 3 times for 503/504/timeout errors
+// getWithRetries attempts an HTTP GET request up to 3 times for transient failures.
 func (c *Client) getWithRetries(reqURL string) (*http.Response, error) {
 	var lastErr error
 	var resp *http.Response
@@ -37,8 +38,8 @@ func (c *Client) getWithRetries(reqURL string) (*http.Response, error) {
 
 		resp, lastErr = c.httpClient.Do(req)
 
-		// If request succeeded but gave a transient error code, also retry
-		if lastErr == nil && (resp.StatusCode == 503 || resp.StatusCode == 504 || resp.StatusCode == 502) {
+		// If request succeeded but gave a transient error code, also retry.
+		if lastErr == nil && (resp.StatusCode == 500 || resp.StatusCode == 502 || resp.StatusCode == 503 || resp.StatusCode == 504) {
 			resp.Body.Close()
 			lastErr = fmt.Errorf("transient status code: %d", resp.StatusCode)
 		} else if lastErr == nil {
@@ -46,7 +47,7 @@ func (c *Client) getWithRetries(reqURL string) (*http.Response, error) {
 		}
 
 		if attempt < 2 {
-			fmt.Printf("\r\033[K[Transit API] Network congested, retrying... (Attempt %d/3)\n", attempt+1)
+			fmt.Fprintf(os.Stderr, "[Transit API] retrying after transient failure (attempt %d/3)\n", attempt+1)
 		}
 
 		time.Sleep(time.Duration(attempt+1) * time.Second)

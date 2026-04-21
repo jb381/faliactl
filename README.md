@@ -42,12 +42,13 @@ go install
 The best way to use `faliactl` is to just run it and let the TUI guide you:
 
 ```bash
-./faliactl interactive
+faliactl interactive
 ```
 
 You'll be greeted with a slick menu asking if you want to:
 1. **Export Timetable**: Fuzzy-search your exact study group, multi-select the courses you actually plan on attending, and hit enter to spit out an `.ics` file.
 2. **View Mensa Menu**: Search through the campuses (e.g. *Wolfenbüttel, Braunschweig*) and instantly view today's or tomorrow's menu.
+3. **Check Transit**: View live departures or route home from your saved campus.
 4. **Plan Course Commute**: Automatically scrapes your group timetable to determine exactly when you have to leave home to reach your specific class.
 5. **Weekly Commute Planner**: Parses the next 7 days of classes and prints a complete daily schedule of transit departures from your house.
 6. **Settings**: Customize your UI Accent Color, save your home address, set a default mensa campus, and configure course groups to jump straight to the data immediately next time you boot.
@@ -58,28 +59,33 @@ Don't want menus? Use the raw subcommands.
 
 **Configure your home address (for smart routing):**
 ```bash
-./faliactl config --set-home "Hauptbahnhof Braunschweig"
+faliactl config --set-home "Hauptbahnhof Braunschweig"
 ```
 
 **View Live Campus Departures:**
 ```bash
-./faliactl transit --campus salzgitter,wolfenbuettel
+faliactl transit --campus salzgitter,wolfenbuettel
 ```
 
-**Route Home & Export Commute ICS:**
+**Route Home & Export a Commute Template:**
 ```bash
-./faliactl transit --campus suderburg --home --export-week
+faliactl transit --campus suderburg --home --export-week
 ```
 
 **Export a schedule:**
 ```bash
-./faliactl export --group 161902 --output my_schedule.ics
+faliactl export --group 161902 --output my_schedule.ics
 ```
 
 **Check the Mensa:**
 ```bash
 # We use fuzzy substring matching, so "braunschweig" will find the right ID!
-./faliactl mensa --campus braunschweig
+faliactl mensa --campus braunschweig
+```
+
+**Serve calendars over HTTP:**
+```bash
+faliactl serve --sets sets.json
 ```
 
 ---
@@ -109,6 +115,12 @@ To ensure everything is green:
 ```bash
 go test -v ./...
 ```
+
+## 🌐 Calendar Server
+
+`faliactl serve` exposes generated calendars over HTTP. It can serve a single group path like `161902.ics` or a named set from `sets.json`.
+
+Use `sets.json.example` as a starting point if you want to combine multiple groups or filter specific courses.
 
 ## 💖 Built With
 - [Cobra](https://github.com/spf13/cobra) — *For the snappy CLI*

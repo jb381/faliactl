@@ -1,8 +1,20 @@
 package transit
 
 import (
+	"strings"
 	"testing"
 )
+
+func skipOnUpstreamFailure(t *testing.T, err error) {
+	if err == nil {
+		return
+	}
+
+	msg := err.Error()
+	if strings.Contains(msg, "unexpected status code: 5") || strings.Contains(msg, "transient status code: 5") {
+		t.Skipf("Skipping live transit test due to upstream failure: %v", err)
+	}
+}
 
 func TestTransitIntegration_FetchLocations(t *testing.T) {
 	if testing.Short() {
@@ -13,6 +25,7 @@ func TestTransitIntegration_FetchLocations(t *testing.T) {
 
 	locations, err := client.FetchLocations("Wolfenbüttel Fachhochschule")
 	if err != nil {
+		skipOnUpstreamFailure(t, err)
 		t.Fatalf("Failed to fetch locations: %v", err)
 	}
 
@@ -46,6 +59,7 @@ func TestTransitIntegration_FetchDepartures(t *testing.T) {
 	// 991604089 is Salzgitter Ostfalia Campus (usually has buses all day)
 	deps, err := client.FetchDepartures("991604089", 120) // 120 mins
 	if err != nil {
+		skipOnUpstreamFailure(t, err)
 		t.Fatalf("Failed to fetch departures: %v", err)
 	}
 
@@ -76,6 +90,7 @@ func TestTransitIntegration_FetchJourneys(t *testing.T) {
 	// Wolfenbüttel (8000255) to Braunschweig Hbf (8000049)
 	journeys, err := client.FetchJourneys("8000255", "8000049")
 	if err != nil {
+		skipOnUpstreamFailure(t, err)
 		t.Fatalf("Failed to fetch journeys: %v", err)
 	}
 

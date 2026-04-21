@@ -8,9 +8,11 @@ This project is built using Go, heavily leveraging the `charm.land` ecosystem to
   - `root.go`: Root command definition.
   - `export.go`: Exposes the non-interactive scraper export functionality via flags (`--group`, `--output`).
   - `mensa.go`: Exposes the cafeteria fetching API via flags (`--campus`, `--date`).
-  - `transit.go`: Exposes the HAFAS transit routing and upcoming weekly ICS export.
+  - `transit.go`: Exposes the HAFAS transit routing and commute-template ICS export.
   - `config.go`: Allows CLI configuration of user preferences (like home base).
+  - `serve.go`: Serves generated ICS calendars over HTTP from a group or named set.
   - `interactive.go`: Launches the main Charm Huh based TUI menu.
+  - `sets.go`: Parses the optional subscription set config used by `serve`.
 - `pkg/scraper/`: The backend module responsible for fetching and parsing HTML data from the university servers.
   - Features `client.go` to handle HTTP connections.
   - Uses `goquery` to parse `schedule.html` (for group lists) and specific schedule IDs (e.g. `161902.html`) for course data.
@@ -25,12 +27,12 @@ This project is built using Go, heavily leveraging the `charm.land` ecosystem to
 - `pkg/config/`: A simple OS-agnostic JSON storage module designed to remember user variables like `home_address`, `accent_color`, and `saved_courses` in a local dotfile (`~/.faliactl.json`). This module allows `faliactl` to instantly bypass interactive selection menus when default settings are populated.
 - `pkg/scraper/cache.go`: Implements a 12-hour local caching system mapping API responses to `~/.faliactl_cache`. This strictly mitigates the aggressive load times from hitting the Intranet on repetitive daily commands like `Weekly Commute Planner`.
 - `pkg/tui/`: The UI components built using `huh.Form`. Provides fuzzy-searchable multi-select lists for schedules, cafeterias, and transit.
-  - Implements a dynamic styling builder via `GetTheme()` in `app.go`. This securely decrypts the user's saved hex color preference and dynamically re-binds Lipgloss variables across all TUI screens.
+  - Implements a dynamic styling builder via `GetTheme()` in `app.go`. This loads the user's saved hex color preference and dynamically re-binds Lipgloss variables across all TUI screens.
 
 ## Architectural Philosophy
 Any future extensions or feature work on `faliactl` must adhere to these three core design pillars:
 1. **Offline-First & Fast**: The university intranet is historically slow. `faliactl` must heavily leverage `pkg/config/` for persistent preferences and `pkg/scraper/cache.go` to aggressively cache HTTP responses, ensuring CLI commands execute in under 1 second whenever possible.
-2. **Unix Philosophy / Pipeline Ready**: The CLI commands in `cmd/` (like `export` and `transit`) must always support raw stdout piping to allow users to build shell scripts around them. Complex TUI elements (`huh.Form`) should remain strictly cordoned off inside `pkg/tui/` and `interactive.go`.
+2. **Unix Philosophy / Pipeline Ready**: The CLI commands in `cmd/` (like `export`, `transit`, and `serve`) must always support raw stdout piping or simple HTTP subscription flows so users can build shell scripts around them. Complex TUI elements (`huh.Form`) should remain strictly cordoned off inside `pkg/tui/` and `interactive.go`.
 3. **Strict Separation of Concerns**: Models and API logic (`pkg/scraper`, `pkg/mensa`, `pkg/transit`) must never import or be aware of UI frameworks (`charmbracelet/huh` or `lipgloss`). This enforces a clean MVC pattern where the terminal UI is merely a presentation layer wrapped around highly-testable core business logic.
 4. **Dependency Minimalism**: `faliactl` intentionally avoids massive web frameworks or heavy ORMs. If a feature can be built utilizing standard Go libraries (e.g., `net/http` and `encoding/json`), do not add an external GitHub package to `go.mod`.
 

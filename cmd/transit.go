@@ -41,31 +41,49 @@ var transitCmd = &cobra.Command{
 
 		campuses := strings.Split(campusFlag, ",")
 		client := transit.NewClient()
+		var firstErr error
+		processedAny := false
 
 		for _, campusName := range campuses {
 			campusName = strings.TrimSpace(strings.ToLower(campusName))
 			stationID, ok := transitCampusMap[campusName]
 			if !ok {
-				fmt.Printf("⚠️ Warning: Unknown campus '%s'. Skipping.\n", campusName)
+				fmt.Fprintf(os.Stderr, "Warning: unknown campus %q, skipping\n", campusName)
 				continue
 			}
+			processedAny = true
 
 			if exportWeek {
 				if err := exportTransitICS(client, campusName, stationID); err != nil {
-					fmt.Printf("❌ Failed to export transit ICS for %s: %v\n", campusName, err)
+					fmt.Fprintf(os.Stderr, "Failed to export transit ICS for %s: %v\n", campusName, err)
+					if firstErr == nil {
+						firstErr = err
+					}
 				}
 			} else if routeHome {
 				if err := printRouteHome(client, campusName, stationID); err != nil {
-					fmt.Printf("❌ Failed to find route home from %s: %v\n", campusName, err)
+					fmt.Fprintf(os.Stderr, "Failed to find route home from %s: %v\n", campusName, err)
+					if firstErr == nil {
+						firstErr = err
+					}
 				}
 			} else {
 				if err := printDepartures(client, campusName, stationID); err != nil {
-					fmt.Printf("❌ Failed to fetch departures for %s: %v\n", campusName, err)
+					fmt.Fprintf(os.Stderr, "Failed to fetch departures for %s: %v\n", campusName, err)
+					if firstErr == nil {
+						firstErr = err
+					}
 				}
 			}
 			fmt.Println()
 		}
 
+		if firstErr != nil {
+			return firstErr
+		}
+		if !processedAny {
+			return fmt.Errorf("no valid campuses were provided")
+		}
 		return nil
 	},
 }
@@ -176,7 +194,7 @@ func exportTransitICS(client *transit.Client, campusName string, fromStationID s
 	var fetchErr error
 
 	_ = spinner.New().
-		Title(fmt.Sprintf("Exporting upcoming 7 days commute from %s to %s...", campusName, cfg.HomeAddress)).
+		Title(fmt.Sprintf("Exporting commute template from %s to %s...", campusName, cfg.HomeAddress)).
 		Action(func() {
 			journeys, fetchErr = client.FetchJourneys(fromStationID, cfg.HomeStationID)
 		}).
@@ -215,8 +233,8 @@ func exportTransitICS(client *transit.Client, campusName string, fromStationID s
 		event.SetSummary(fmt.Sprintf("🚌 Commute Home (%s)", cases.Title(language.German).String(campusName)))
 		event.SetLocation(fmt.Sprintf("Start: %s", bestJourney.Legs[0].Origin.Name))
 
-		// Build a description with all transfers
-		desc := "Live tracking normally available via DB Navigator.\n\nJourney Details:\n"
+		// Build a description with all transfers.
+		desc := "Live tracking normally available via DB Navigator.\n\nThis calendar is a best-effort commute template based on one representative journey.\n\nJourney Details:\n"
 		for i, leg := range bestJourney.Legs {
 			lineName := "Walk"
 			if leg.Line != nil {
@@ -227,13 +245,13 @@ func exportTransitICS(client *transit.Client, campusName string, fromStationID s
 		event.SetDescription(desc)
 	}
 
-	filename := fmt.Sprintf("transit_%s.ics", campusName)
+	filename := fmt.Sprintf("transit_%s_template.ics", campusName)
 	err = os.WriteFile(filename, []byte(cal.Serialize()), 0644)
 	if err != nil {
 		return fmt.Errorf("could not write ics file: %w", err)
 	}
 
-	fmt.Printf("\n✨ Successfully exported commute calendar to: %s\n", filename)
+	fmt.Printf("\n✨ Successfully exported commute template to: %s\n", filename)
 	return nil
 }
 
@@ -241,5 +259,5 @@ func init() {
 	rootCmd.AddCommand(transitCmd)
 	transitCmd.Flags().StringP("campus", "c", "", "Ostfalia campus (salzgitter, wolfenbuettel, suderburg)")
 	transitCmd.Flags().BoolP("home", "r", false, "Route directly from the campus to your saved home address")
-	transitCmd.Flags().BoolP("export-week", "e", false, "Export the next 7 days of commutes to an .ics calendar file")
+	transitCmd.Flags().BoolP("export-week", "e", false, "Export a 7-day commute template to an .ics calendar file")
 }
