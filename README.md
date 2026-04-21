@@ -122,6 +122,14 @@ go test -v ./...
 
 Use `sets.json.example` as a starting point if you want to combine multiple groups or filter specific courses.
 
+## 🐳 Server Deployment
+
+If you want to host `faliactl` on a server, the repo includes a `Dockerfile` and `docker-compose.yml` that start the HTTP calendar server on port `8080`.
+
+By default the container runs `faliactl serve`.
+
+For named calendar sets, copy `sets.json.example` to `sets.json` and mount it via compose.
+
 ## 💖 Built With
 - [Cobra](https://github.com/spf13/cobra) — *For the snappy CLI*
 - [Huh](https://github.com/charmbracelet/huh) — *For the gorgeous forms & TUI*

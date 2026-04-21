@@ -13,6 +13,7 @@ This project is built using Go, heavily leveraging the `charm.land` ecosystem to
   - `serve.go`: Serves generated ICS calendars over HTTP from a group or named set.
   - `interactive.go`: Launches the main Charm Huh based TUI menu.
   - `sets.go`: Parses the optional subscription set config used by `serve`.
+- `Dockerfile` and `docker-compose.yml`: Optional container deployment path for hosting `faliactl serve` on a server.
 - `pkg/scraper/`: The backend module responsible for fetching and parsing HTML data from the university servers.
   - Features `client.go` to handle HTTP connections.
   - Uses `goquery` to parse `schedule.html` (for group lists) and specific schedule IDs (e.g. `161902.html`) for course data.

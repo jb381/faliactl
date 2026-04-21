@@ -1,0 +1,10 @@
+services:
+  faliactl:
+    build: .
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Berlin
+    volumes:
+      - ./sets.json:/app/sets.json:ro
