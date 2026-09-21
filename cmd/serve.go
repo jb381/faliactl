@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"faliactl/pkg/exporter"
 	"faliactl/pkg/scraper"
@@ -14,6 +15,14 @@ import (
 
 var setsFilePath string
 
+type scheduleFetcher interface {
+	FetchSchedule(groupURL string) ([]scraper.Course, error)
+}
+
+var newScheduleFetcher = func() scheduleFetcher {
+	return scraper.NewClient()
+}
+
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start an HTTP server to serve dynamic ICS calendars",
@@ -22,13 +31,25 @@ var serveCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetString("port")
 		setsFilePath, _ = cmd.Flags().GetString("sets")
 
-		http.HandleFunc("/", handleCalendarRequest)
-
 		fmt.Printf("Starting server on port %s...\n", port)
 		fmt.Printf("Using sets file: %s (if exists)\n", setsFilePath)
 		fmt.Printf("Subscribe to calendars at http://localhost:%s/<group_or_set>.ics\n", port)
-		return http.ListenAndServe(":"+port, nil)
+		return newCalendarServer(port).ListenAndServe()
 	},
+}
+
+func newCalendarServer(port string) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handleCalendarRequest)
+
+	return &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       time.Minute,
+	}
 }
 
 func handleCalendarRequest(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +69,7 @@ func handleCalendarRequest(w http.ResponseWriter, r *http.Request) {
 	identifier := strings.TrimSuffix(path, ".ics")
 	log.Printf("Received request for identifier %s from %s", identifier, r.RemoteAddr)
 
-	client := scraper.NewClient()
+	client := newScheduleFetcher()
 	var allCourses []scraper.Course
 
 	// Check if identifier matches a subscription set
@@ -68,7 +89,8 @@ func handleCalendarRequest(w http.ResponseWriter, r *http.Request) {
 			groupCourses, fetchErr := client.FetchSchedule(urlPath)
 			if fetchErr != nil {
 				log.Printf("Error fetching schedule for group %s in set %s: %v", group, identifier, fetchErr)
-				continue
+				http.Error(w, "Failed to fetch complete calendar", http.StatusBadGateway)
+				return
 			}
 			for _, c := range groupCourses {
 				key := fmt.Sprintf("%s|%s|%s|%s", c.Name, c.DateStr, c.StartTime, c.EndTime)

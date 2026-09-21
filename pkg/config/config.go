@@ -63,8 +63,13 @@ func Save(cfg *AppConfig) error {
 		return fmt.Errorf("failed to serialize config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	// WriteFile preserves permissions on existing files, so explicitly tighten
+	// configurations created by older versions that used mode 0644.
+	if err := os.Chmod(path, 0600); err != nil {
+		return fmt.Errorf("failed to secure config file permissions: %w", err)
 	}
 
 	return nil

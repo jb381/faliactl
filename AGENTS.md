@@ -1,6 +1,6 @@
 # Faliactl Architecture Knowledge Base
 
-This project is built using Go, heavily leveraging the `charm.land` ecosystem to provide a beautiful CLI/TUI experience for interacting with Ostfalia university data.
+This project requires Go 1.26 or newer and heavily leverages the `charm.land` ecosystem to provide a beautiful CLI/TUI experience for interacting with Ostfalia university data.
 
 ## Project Structure
 
@@ -24,8 +24,9 @@ This project is built using Go, heavily leveraging the `charm.land` ecosystem to
   - Includes `integration_test.go` directly hitting the remote API to ensure schemas are stable.
 - `pkg/transit/`: The backend transit routing engine wrapping `v6.db.transport.rest`.
   - Implements a resilient `Client` with a retry-loop and custom User-Agent to handle 503 public tracking limits.
+  - Preserves both stop and street-address search results, validates journey legs before returning them to callers, and normalizes displayed transit times to `Europe/Berlin`.
   - Contains `integration_test.go` parsing dynamic HAFAS structures.
-- `pkg/config/`: A simple OS-agnostic JSON storage module designed to remember user variables like `home_address`, `accent_color`, and `saved_courses` in a local dotfile (`~/.faliactl.json`). This module allows `faliactl` to instantly bypass interactive selection menus when default settings are populated.
+- `pkg/config/`: A simple OS-agnostic JSON storage module designed to remember user variables like `home_address`, `accent_color`, and `saved_courses` in a local dotfile (`~/.faliactl.json`). The file is restricted to the current user (`0600` on platforms with POSIX permissions). This module allows `faliactl` to instantly bypass interactive selection menus when default settings are populated.
 - `pkg/scraper/cache.go`: Implements a 12-hour local caching system mapping API responses to `~/.faliactl_cache`. This strictly mitigates the aggressive load times from hitting the Intranet on repetitive daily commands like `Weekly Commute Planner`.
 - `pkg/tui/`: The UI components built using `huh.Form`. Provides fuzzy-searchable multi-select lists for schedules, cafeterias, and transit.
   - Implements a dynamic styling builder via `GetTheme()` in `app.go`. This loads the user's saved hex color preference and dynamically re-binds Lipgloss variables across all TUI screens.
@@ -40,8 +41,10 @@ Any future extensions or feature work on `faliactl` must adhere to these three c
 ## Future Extensibility
 - **Adding new commands**: The application uses Cobra, so adding a new sub-command is as easy as creating a new file in `cmd/` and adding it to the `rootCmd`.
 - **Testing Philosophy**: `faliactl` relies heavily on two layers of testing:
-  1. **Live Integration Tests**: Tests ending in `_test.go` that ping remote endpoints to ensure the backend wrappers remain functionally valid over time. Always include a live integration test when implementing a new external data source.
+  1. **Live Integration Tests**: Tests ending in `_test.go` that ping remote endpoints to ensure the backend wrappers remain functionally valid over time. Schedule integration tests must isolate `HOME`/`USERPROFILE` so the 12-hour user cache cannot turn a live test into a cached pass. Always include a live integration test when implementing a new external data source.
   2. **Mocked Unit Tests**: Robust unit tests parsing injected simulated JSON objects (like `httptest.Server`) to guarantee the offline extraction logic does not panic if upstream responses omit fields or throw HTTP 503s.
+
+The calendar server fails closed for named sets: if any member schedule cannot be loaded, it returns an upstream error rather than publishing a partial calendar. Its `http.Server` also uses explicit read, header, write, and idle timeouts for safe public deployment.
 
 ## Agent Instructions
 - **Self-Updating Knowledge Base**: As an AI agent working on this repository, you must ALWAYS proactively update this `agents.md` file and the `README.md` file to reflect any new modules, structural changes, design patterns, or CLI commands that you implement over future conversations. Maintaining this documentation as the single source of truth is a strict requirement for all codebase modifications.

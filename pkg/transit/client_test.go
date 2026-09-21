@@ -84,6 +84,63 @@ func TestClient_FetchJourneysByArrival(t *testing.T) {
 	}
 }
 
+func TestClient_FetchLocations_IncludesAddresses(t *testing.T) {
+	mockJSON := `[
+		{"type":"stop","id":"stop-1","name":"Nearby Stop"},
+		{"type":"location","id":"address-1","name":"Musterstraße 1, Braunschweig"},
+		{"type":"location","id":"","name":"Unroutable Result"}
+	]`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("poi"); got != "false" {
+			t.Errorf("expected poi=false, got %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(mockJSON))
+	}))
+	defer server.Close()
+
+	originalBaseURL := baseURL
+	baseURL = server.URL
+	defer func() { baseURL = originalBaseURL }()
+
+	locations, err := NewClient().FetchLocations("Musterstraße 1")
+	if err != nil {
+		t.Fatalf("unexpected error fetching locations: %v", err)
+	}
+	if len(locations) != 2 {
+		t.Fatalf("expected stop and address results, got %d", len(locations))
+	}
+	if locations[1].Type != "location" || locations[1].ID != "address-1" {
+		t.Fatalf("expected address result to be preserved, got %+v", locations[1])
+	}
+}
+
+func TestClient_FetchJourneysByArrival_RejectsEmptyLegs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"journeys":[{"legs":[]}]}`))
+	}))
+	defer server.Close()
+
+	originalBaseURL := baseURL
+	baseURL = server.URL
+	defer func() { baseURL = originalBaseURL }()
+
+	_, err := NewClient().FetchJourneysByArrival("123", "456", time.Now())
+	if err == nil {
+		t.Fatal("expected incomplete journey data to be rejected")
+	}
+}
+
+func TestInBerlin(t *testing.T) {
+	utc := time.Date(2026, time.July, 1, 10, 0, 0, 0, time.UTC)
+	got := InBerlin(utc)
+	if got.Format("15:04 -0700") != "12:00 +0200" {
+		t.Fatalf("expected Berlin summer time, got %s", got.Format("15:04 -0700"))
+	}
+}
+
 func TestClient_GetWithRetries_Success(t *testing.T) {
 	attempts := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

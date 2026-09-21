@@ -42,8 +42,13 @@ func TestConfigLoadSave(t *testing.T) {
 
 	// Verify the file was actually created
 	configPath := filepath.Join(tempDir, ".faliactl.json")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+	info, err := os.Stat(configPath)
+	if os.IsNotExist(err) {
 		t.Errorf("expected config file to be created at %s", configPath)
+	} else if err != nil {
+		t.Fatalf("failed to stat config file: %v", err)
+	} else if got := info.Mode().Perm(); got != 0600 {
+		t.Errorf("expected config permissions 0600, got %04o", got)
 	}
 
 	// 3. Test Load with existing file
@@ -55,6 +60,29 @@ func TestConfigLoadSave(t *testing.T) {
 	// Compare loaded config with saved config
 	if !reflect.DeepEqual(cfg, loadedCfg) {
 		t.Errorf("loaded config does not match saved config.\nGot: %+v\nExpected: %+v", loadedCfg, cfg)
+	}
+}
+
+func TestSaveTightensExistingConfigPermissions(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("USERPROFILE", tempDir)
+
+	configPath := filepath.Join(tempDir, ".faliactl.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0644); err != nil {
+		t.Fatalf("failed to create permissive config: %v", err)
+	}
+
+	if err := Save(&AppConfig{HomeAddress: "Private Address"}); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	info, err := os.Stat(configPath)
+	if err != nil {
+		t.Fatalf("failed to stat config file: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Errorf("expected existing config permissions to be tightened to 0600, got %04o", got)
 	}
 }
 

@@ -85,7 +85,11 @@ func (c *Client) FetchSchedule(groupURL string) ([]Course, error) {
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
-	return ParseSchedule(resp.Body)
+	courses, err := ParseSchedule(resp.Body)
+	if err == nil && len(courses) > 0 {
+		writeCache(groupURL, courses)
+	}
+	return courses, err
 }
 
 // deduplicateCourses removes duplicate course entries since the same popover might be listed multiple times if it spans multiple weeks, although usually they have distinct IDs. Adding just in case.

@@ -17,6 +17,7 @@
 - **ICS Generation**: Turns the messy university intranet and your upcoming commutes into standard `.ics` files ready for Google Calendar, Apple Calendar, or Outlook.
 - **Dynamic Theming Customization**: The entire TUI is completely customizable. Open the `Settings` menu to inject globally applied Hex colors (e.g. `#FF00FF`) or pick from curated Charm presets (Sakura Pink, Ocean Blue) to redesign the app's highlighted borders and cursors! 🎨
 - **Persistent Preferences**: Saves your default Mensa campus, study groups, theme color, and home address to `~/.faliactl.json`, seamlessly skipping UI selection menus after your first boot. This makes interacting with daily commands lightning fast! ⚡️
+- **Private Local Configuration**: The configuration file is restricted to the current user on systems with POSIX file permissions, protecting saved home-location data.
 - **Scriptable CLI**: Know exactly what you want? Bypass the menus entirely utilizing lightning fast subcommands. ⚡️
 
 ---
@@ -24,6 +25,8 @@
 ## 🚀 Installation
 
 The recommended way to install `faliactl` so it is globally available in your terminal is via `go install`:
+
+Go 1.26 or newer is required.
 
 ```bash
 git clone https://github.com/jb381/faliactl.git
@@ -121,6 +124,10 @@ go test -v ./...
 `faliactl serve` exposes generated calendars over HTTP. It can serve a single group path like `161902.ics` or a named set from `sets.json`.
 
 Use `sets.json.example` as a starting point if you want to combine multiple groups or filter specific courses.
+
+Named sets are served atomically: if any configured group cannot be fetched, the server returns an upstream error instead of publishing a partial calendar. The server also applies explicit connection timeouts for safer public deployment.
+
+Schedule responses are cached locally for 12 hours. Live scraper integration tests use an isolated temporary cache so they continue to verify the current Ostfalia HTML layout.
 
 ## 🐳 Server Deployment
 
