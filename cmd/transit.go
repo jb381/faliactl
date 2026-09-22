@@ -121,7 +121,7 @@ func printDepartures(client *transit.Client, campusName string, stationID string
 				delayStr = fmt.Sprintf("\033[31m (+%d min delay)\033[0m", *d.Delay/60)
 			}
 			fmt.Printf("  • [%s]%s\n",
-				d.When.Local().Format("15:04"),
+				transit.InBerlin(d.When).Format("15:04"),
 				delayStr,
 			)
 		}
@@ -167,10 +167,10 @@ func printRouteHome(client *transit.Client, campusName string, fromStationID str
 
 		fmt.Printf("%d. [%s] %s -> %s (Arrive: %s)\n",
 			i+1,
-			leg.Departure.Local().Format("15:04"),
+			transit.InBerlin(leg.Departure).Format("15:04"),
 			lineName,
 			leg.Destination.Name,
-			leg.Arrival.Local().Format("15:04"))
+			transit.InBerlin(leg.Arrival).Format("15:04"))
 	}
 
 	return nil
@@ -185,7 +185,8 @@ func exportTransitICS(client *transit.Client, campusName string, fromStationID s
 	cal := ics.NewCalendar()
 	cal.SetMethod(ics.MethodPublish)
 
-	now := time.Now()
+	loc := transit.BerlinLocation()
+	now := time.Now().In(loc)
 
 	// Fetch today's fastest route home, then simulate applying it to the next 7 days
 	// Note: In an ideal world we iterate date parameters, but this is a solid approximation
@@ -213,6 +214,7 @@ func exportTransitICS(client *transit.Client, campusName string, fromStationID s
 	journeyStart := bestJourney.Legs[0].Departure
 	journeyEnd := bestJourney.Legs[len(bestJourney.Legs)-1].Arrival
 	duration := journeyEnd.Sub(journeyStart)
+	journeyStartBerlin := transit.InBerlin(journeyStart)
 
 	for i := 0; i < 7; i++ {
 		targetDate := now.AddDate(0, 0, i)
@@ -221,7 +223,7 @@ func exportTransitICS(client *transit.Client, campusName string, fromStationID s
 			continue
 		}
 
-		eventStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), journeyStart.Hour(), journeyStart.Minute(), 0, 0, targetDate.Location())
+		eventStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), journeyStartBerlin.Hour(), journeyStartBerlin.Minute(), 0, 0, loc)
 		eventEnd := eventStart.Add(duration)
 
 		event := cal.AddEvent(fmt.Sprintf("%s-commute-%d", campusName, i))

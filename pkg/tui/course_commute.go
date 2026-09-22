@@ -231,7 +231,7 @@ func calculateRouteToClass(course scraper.Course, cfg *config.AppConfig) error {
 	firstDepart := bestJourney.Legs[0].Departure
 	totalDuration := bestJourney.Legs[len(bestJourney.Legs)-1].Arrival.Sub(firstDepart)
 
-	fmt.Printf("Leave home by: %s\n", errorStyle.Render(firstDepart.Local().Format("15:04")))
+	fmt.Printf("Leave home by: %s\n", errorStyle.Render(transit.InBerlin(firstDepart).Format("15:04")))
 	fmt.Printf("Total Travel Time: %d mins\n\n", int(totalDuration.Minutes()))
 
 	for i, leg := range bestJourney.Legs {
@@ -240,9 +240,9 @@ func calculateRouteToClass(course scraper.Course, cfg *config.AppConfig) error {
 			lineName = leg.Line.Name
 		}
 
-		timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render(leg.Departure.Local().Format("15:04"))
+		timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render(transit.InBerlin(leg.Departure).Format("15:04"))
 		lineStr := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true).Render(lineName)
-		arrStr := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Arrive: " + leg.Arrival.Local().Format("15:04"))
+		arrStr := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Arrive: " + transit.InBerlin(leg.Arrival).Format("15:04"))
 
 		fmt.Printf("%d. [%s] %s -> %s (%s)\n", i+1, timeStr, lineStr, leg.Destination.Name, arrStr)
 	}

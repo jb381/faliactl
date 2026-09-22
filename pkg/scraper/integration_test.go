@@ -38,6 +38,12 @@ func TestScraperIntegration_FetchGroups(t *testing.T) {
 
 // TestScraperIntegration_FetchSchedule actually connects to a specific Ostfalia schedule page.
 func TestScraperIntegration_FetchSchedule(t *testing.T) {
+	// FetchSchedule normally uses the user's 12-hour cache. Isolate this test
+	// so every run actually verifies the live endpoint and current HTML layout.
+	cacheHome := t.TempDir()
+	t.Setenv("HOME", cacheHome)
+	t.Setenv("USERPROFILE", cacheHome)
+
 	client := NewClient()
 
 	// 161902.html is historically the "Digital Technologies" schedule endpoint we've used for testing

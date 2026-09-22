@@ -60,7 +60,9 @@ func (c *Client) getWithRetries(reqURL string) (*http.Response, error) {
 func (c *Client) FetchLocations(query string) ([]Location, error) {
 	// Query parameters
 	encodedQuery := url.QueryEscape(query)
-	reqURL := fmt.Sprintf("%s/locations?query=%s&results=5", baseURL, encodedQuery)
+	// POIs are not useful as saved home locations. Keeping address results
+	// enabled allows users to route from a street address as advertised.
+	reqURL := fmt.Sprintf("%s/locations?query=%s&results=5&poi=false", baseURL, encodedQuery)
 
 	resp, err := c.getWithRetries(reqURL)
 	if err != nil {
@@ -82,10 +84,10 @@ func (c *Client) FetchLocations(query string) ([]Location, error) {
 		return nil, fmt.Errorf("failed to decode locations JSON: %w", err)
 	}
 
-	// Filter down to just actual stations/stops
+	// HAFAS represents street addresses as type "location".
 	var filtered []Location
 	for _, l := range locations {
-		if l.Type == "station" || l.Type == "stop" {
+		if (l.Type == "station" || l.Type == "stop" || l.Type == "location") && l.ID != "" && l.Name != "" {
 			filtered = append(filtered, l)
 		}
 	}
@@ -145,7 +147,7 @@ func (c *Client) FetchJourneys(fromID string, toID string) ([]Journey, error) {
 		return nil, fmt.Errorf("failed to decode journey JSON: %w", err)
 	}
 
-	return journeyResp.Journeys, nil
+	return validateJourneys(journeyResp.Journeys)
 }
 
 // FetchJourneysByArrival plans a trip from a starting station ID to a destination ID, arriving before a specific time
@@ -173,5 +175,24 @@ func (c *Client) FetchJourneysByArrival(fromID string, toID string, arrival time
 		return nil, fmt.Errorf("failed to decode journey JSON: %w", err)
 	}
 
-	return journeyResp.Journeys, nil
+	return validateJourneys(journeyResp.Journeys)
+}
+
+func validateJourneys(journeys []Journey) ([]Journey, error) {
+	if len(journeys) == 0 {
+		return nil, nil
+	}
+
+	valid := make([]Journey, 0, len(journeys))
+	for _, journey := range journeys {
+		if journey.Validate() == nil {
+			valid = append(valid, journey)
+		}
+	}
+
+	if len(valid) == 0 {
+		return nil, fmt.Errorf("journey response contained no complete journeys")
+	}
+
+	return valid, nil
 }

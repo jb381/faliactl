@@ -89,7 +89,7 @@ func runDeparturesView(client *transit.Client, stationID string) error {
 				delayStr = errorStyle.Render(fmt.Sprintf(" (+%d min delay)", *d.Delay/60))
 			}
 
-			timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render(d.When.Local().Format("15:04"))
+			timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render(transit.InBerlin(d.When).Format("15:04"))
 
 			fmt.Printf("  • [%s]%s\n", timeStr, delayStr)
 		}
@@ -136,9 +136,9 @@ func runRouteHomeView(client *transit.Client, stationID string) error {
 			lineName = leg.Line.Name
 		}
 
-		timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render(leg.Departure.Local().Format("15:04"))
+		timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render(transit.InBerlin(leg.Departure).Format("15:04"))
 		lineStr := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true).Render(lineName)
-		arrStr := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Arrive: " + leg.Arrival.Local().Format("15:04"))
+		arrStr := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Arrive: " + transit.InBerlin(leg.Arrival).Format("15:04"))
 
 		fmt.Printf("%d. [%s] %s -> %s (%s)\n", i+1, timeStr, lineStr, leg.Destination.Name, arrStr)
 	}
